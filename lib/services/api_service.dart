@@ -1,0 +1,151 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'session_manager.dart';
+
+class ApiService {
+  static const String baseUrl = 'http://192.168.16.14:8002';
+
+  static Future<Map<String, dynamic>> login(
+    String email,
+    String password,
+  ) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/Login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password}),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) return data;
+    throw Exception(data['detail'] ?? 'Login failed');
+  }
+
+  static Future<Map<String, dynamic>> signup(
+    String userName,
+    String email,
+    String password,
+  ) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/SignUp'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_name': userName,
+        'email': email,
+        'password': password,
+      }),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200 || res.statusCode == 201) return data;
+    throw Exception(data['detail'] ?? 'Signup failed');
+  }
+
+  static Future<List<dynamic>> getWaitingList() async {
+    final res = await http.get(Uri.parse('$baseUrl/patient-waiting-list'));
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw Exception('Failed to load waiting list');
+  }
+
+  static Future<List<dynamic>> getAcceptedList() async {
+    final res = await http.get(Uri.parse('$baseUrl/patient-Accepted-list'));
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw Exception('Failed to load accepted list');
+  }
+
+  static Future<Map<String, dynamic>> getPatientProcess(
+    String mpi,
+    String vid,
+  ) async {
+    final res = await http.get(Uri.parse('$baseUrl/patient-process/$mpi/$vid'));
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw Exception('Failed to load patient process');
+  }
+
+  static Future<List<dynamic>> getAllPatients() async {
+    final res = await http.get(Uri.parse('$baseUrl/get_patients'));
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw Exception('Failed to load patients');
+  }
+
+  static Future<Map<String, dynamic>> getPatientDetails(String mpi) async {
+    final res = await http.get(Uri.parse('$baseUrl/patients/$mpi'));
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw Exception('Failed to load patient details');
+  }
+
+  static Future<bool> lockByVisitId(String vid) async {
+    final userId = await SessionManager.getUserId();
+    final res = await http.put(
+      Uri.parse(
+        '$baseUrl/requests/lock_test_request/visit_id/$vid/user_id/$userId',
+      ),
+    );
+    // 403 = already locked by someone else
+    if (res.statusCode == 403) return false;
+    return res.statusCode == 200;
+  }
+
+  static Future<void> unlockByVisitId(String vid) async {
+    final userId = await SessionManager.getUserId();
+    await http.put(
+      Uri.parse(
+        '$baseUrl/requests/unlock_test_request/visit_id/$vid/user_id/$userId',
+      ),
+    );
+  }
+
+  static Future<bool> lockByTestReqId(String testReqId) async {
+    final userId = await SessionManager.getUserId();
+    final res = await http.put(
+      Uri.parse('$baseUrl/requests/lock_test/$testReqId/user_id/$userId'),
+    );
+    return res.statusCode == 200;
+  }
+
+  static Future<void> unlockByTestReqId(String testReqId) async {
+    final userId = await SessionManager.getUserId();
+    await http.put(
+      Uri.parse(
+        '$baseUrl/requests/unlock_test_request/test_req_id/$testReqId/user_id/$userId',
+      ),
+    );
+  }
+
+  static Future<bool> updateReportStatus({
+    required Map<String, String> reqIdStatus, // ← String
+    required Map<String, double> reqIdBill, // ← String
+    required int userId,
+    required String visitId,
+  }) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/requests/update_report_status'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'req_id_status': reqIdStatus,
+        'req_id_bill': reqIdBill,
+        'user_id': userId,
+        'visit_id': visitId,
+      }),
+    );
+    return res.statusCode == 200;
+  }
+
+  static Future<Map<String, dynamic>> addCompleteResult(
+    Map<String, dynamic> data,
+  ) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/results/complete'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    final body = jsonDecode(res.body);
+    if (res.statusCode == 200 || res.statusCode == 201) return body;
+    throw Exception(body['detail'] ?? 'Failed to save result');
+  }
+
+  static Future<Map<String, dynamic>> getTestResult(String testReqId) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/results/test_req_id/$testReqId'),
+    );
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw Exception('Failed to load test result');
+  }
+}
