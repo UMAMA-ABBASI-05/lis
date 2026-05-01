@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
+import '../../services/session_manager.dart';
 
 class TestResultEntryScreen extends StatefulWidget {
   final String testReqId;
@@ -19,11 +20,88 @@ class _TestResultEntryScreenState extends State<TestResultEntryScreen> {
   final _summaryCtrl = TextEditingController();
   final List<Map<String, TextEditingController>> _rows = [];
   bool _saving = false;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _addRow();
+    _lockAndLoad();
+  }
+
+  Future<void> _lockAndLoad() async {
+    // Pehle lock karo
+    final locked = await ApiService.lockByTestReqId(widget.testReqId);
+    if (!mounted) return;
+
+    if (!locked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Screen is locked by another user'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      Navigator.pop(context);
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Screen locked by you'),
+        backgroundColor: Color(0xFF1A3B5D),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    // Existing result load karo
+    await _loadExistingResult();
+  }
+
+  Future<void> _loadExistingResult() async {
+    try {
+      final data = await ApiService.getTestResult(widget.testReqId);
+
+      // Summary fill karo
+      _summaryCtrl.text = data['description'] ?? '';
+
+      // Mini results fill karo
+      final miniResults = (data['mini_test_results'] as List?) ?? [];
+      if (miniResults.isNotEmpty) {
+        _rows.clear();
+        for (final r in miniResults) {
+          _rows.add({
+            'test_name': TextEditingController(text: r['test_name'] ?? ''),
+            'normal_range': TextEditingController(
+              text: r['normal_range'] ?? '',
+            ),
+            'unit': TextEditingController(text: r['units'] ?? ''),
+            'result_value': TextEditingController(
+              text: r['result_value'] ?? '',
+            ),
+          });
+        }
+      } else {
+        _addRow();
+      }
+    } catch (_) {
+      // Koi result nahi — empty row add karo
+      _addRow();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _unlockAndPop() async {
+    await ApiService.unlockByTestReqId(widget.testReqId);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Screen unlocked'),
+          backgroundColor: Colors.grey,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      Navigator.pop(context);
+    }
   }
 
   void _addRow() {
@@ -60,7 +138,7 @@ class _TestResultEntryScreenState extends State<TestResultEntryScreen> {
           .toList();
 
       await ApiService.addCompleteResult({
-        'test_req_id': widget.testReqId,
+        'test_req_id': int.tryParse(widget.testReqId) ?? widget.testReqId,
         'description': _summaryCtrl.text,
         'mini_test_results': miniResults,
       });
@@ -69,7 +147,7 @@ class _TestResultEntryScreenState extends State<TestResultEntryScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Result saved!'),
+          content: Text('Result saved & screen unlocked!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -98,212 +176,241 @@ class _TestResultEntryScreenState extends State<TestResultEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const Text(
-                    'Add Test Result',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      'Done',
-                      style: TextStyle(
-                        color: Color(0xFF1A3B5D),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+    return WillPopScope(
+      onWillPop: () async {
+        await ApiService.unlockByTestReqId(widget.testReqId);
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Screen unlocked'),
+              backgroundColor: Colors.grey,
+              duration: Duration(seconds: 2),
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          );
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F5F5),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
+                child: Row(
                   children: [
-                    Text(
-                      'Test Result',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A3B5D),
-                      ),
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                      onPressed: _unlockAndPop,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Patient: ${widget.patientName}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Color(0xFF555555),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Summary
                     const Text(
-                      ' Report Summary',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A3B5D),
-                      ),
+                      'Add Test Result',
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
                     ),
-                    const SizedBox(height: 10),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFEEEEEE)),
-                      ),
-                      child: TextField(
-                        controller: _summaryCtrl,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          hintText: 'Summary...',
-                          hintStyle: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 13,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.all(14),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: _unlockAndPop,
+                      child: const Text(
+                        'Done',
+                        style: TextStyle(
+                          color: Color(0xFF1A3B5D),
+                          fontWeight: FontWeight.bold,
                         ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Results',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A3B5D),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Table header
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEAF2FF),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Text(
-                              'Parameters',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: Color(0xFF1A3B5D),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              'Normal Range',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: Color(0xFF1A3B5D),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              'Units',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: Color(0xFF1A3B5D),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              'Results',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: Color(0xFF1A3B5D),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 24),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-                    ...List.generate(_rows.length, (i) => _buildRow(i)),
-
-                    // Add row
-                    TextButton.icon(
-                      onPressed: _addRow,
-                      icon: const Icon(
-                        Icons.add_circle_outline,
-                        color: Color(0xFF1A3B5D),
-                      ),
-                      label: const Text(
-                        'Add Row',
-                        style: TextStyle(color: Color(0xFF1A3B5D)),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A3B5D),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: _saving ? null : _save,
-                        child: _saving
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
-                            : const Text(
-                                'Save',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: _loading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF1A3B5D),
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Test Result',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1A3B5D),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Patient: ${widget.patientName}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Color(0xFF555555),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Test: ${widget.testName}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Summary
+                            const Text(
+                              'Report Summary',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1A3B5D),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFEEEEEE),
+                                ),
+                              ),
+                              child: TextField(
+                                controller: _summaryCtrl,
+                                maxLines: 4,
+                                decoration: const InputDecoration(
+                                  hintText: 'Summary...',
+                                  hintStyle: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 13,
+                                  ),
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.all(14),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 24),
+                            const Text(
+                              'Results',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1A3B5D),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Table header
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEAF2FF),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      'Parameters',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: Color(0xFF1A3B5D),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'Normal Range',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: Color(0xFF1A3B5D),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'Units',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: Color(0xFF1A3B5D),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'Results',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: Color(0xFF1A3B5D),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 24),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 8),
+                            ...List.generate(_rows.length, (i) => _buildRow(i)),
+
+                            TextButton.icon(
+                              onPressed: _addRow,
+                              icon: const Icon(
+                                Icons.add_circle_outline,
+                                color: Color(0xFF1A3B5D),
+                              ),
+                              label: const Text(
+                                'Add Row',
+                                style: TextStyle(color: Color(0xFF1A3B5D)),
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF1A3B5D),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: _saving ? null : _save,
+                                child: _saving
+                                    ? const CircularProgressIndicator(
+                                        color: Colors.white,
+                                      )
+                                    : const Text(
+                                        'Save',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
