@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'session_manager.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.16.14:8002';
+  static const String baseUrl = 'http://192.168.50.14:8002';
 
   static Future<Map<String, dynamic>> login(
     String email,
