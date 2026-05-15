@@ -1,12 +1,15 @@
 class UserModel {
   final int? userId;
-  final String userName;
+  final int? labId;
+
+  final String? userName;
   final String email;
   final String password;
 
   UserModel({
     this.userId,
-    required this.userName,
+    this.labId,
+    this.userName,
     required this.email,
     required this.password,
   });
@@ -15,5 +18,6 @@ class UserModel {
     "user_name": userName,
     "email": email,
     "password": password,
+    "lab_id": labId,
   };
 }
