@@ -133,10 +133,10 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getPatientProcess(
-    String mpi,
+    String nic,
     String vid,
   ) async {
-    final res = await http.get(Uri.parse('$baseUrl/patient-process/$mpi/$vid'));
+    final res = await http.get(Uri.parse('$baseUrl/patient-process/$nic/$vid'));
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load patient process');
   }
@@ -147,8 +147,8 @@ class ApiService {
     throw Exception('Failed to load patients');
   }
 
-  static Future<Map<String, dynamic>> getPatientDetails(String mpi) async {
-    final res = await http.get(Uri.parse('$baseUrl/patients/$mpi'));
+  static Future<Map<String, dynamic>> getPatientDetails(String nic) async {
+    final res = await http.get(Uri.parse('$baseUrl/patients/$nic'));
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load patient details');
   }

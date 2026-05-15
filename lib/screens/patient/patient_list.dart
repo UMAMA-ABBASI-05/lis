@@ -40,8 +40,8 @@ class _PatientListScreenState extends State<PatientListScreen> {
     final q = _searchCtrl.text.toLowerCase();
     setState(() {
       _filtered = _all.where((p) {
-        if (_searchBy == 'MPI') {
-          return p['mpi']?.toString().contains(q) ?? false;
+        if (_searchBy == 'nic') {
+          return p['nic']?.toString().contains(q) ?? false;
         }
         final name = '${p['fname'] ?? ''} ${p['lname'] ?? ''}'.toLowerCase();
         return name.contains(q);
@@ -128,7 +128,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
                           color: Colors.white,
                           fontSize: 13,
                         ),
-                        items: ['Name', 'MPI']
+                        items: ['Name', 'nic']
                             .map(
                               (v) => DropdownMenuItem(
                                 value: v,
@@ -181,7 +181,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
                                     MaterialPageRoute(
                                       builder: (_) =>
                                           PatientReportsHistoryScreen(
-                                            mpi: p['mpi']?.toString() ?? '',
+                                            nic: p['nic']?.toString() ?? '',
                                             patientName: name,
                                           ),
                                     ),
@@ -222,7 +222,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
                                                 ),
                                               ),
                                               Text(
-                                                'MPI: ${p['mpi'] ?? ''}',
+                                                'nic: ${p['nic'] ?? ''}',
                                                 style: const TextStyle(
                                                   fontSize: 12,
                                                   color: Colors.grey,

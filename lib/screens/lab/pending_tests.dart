@@ -50,8 +50,8 @@ class _PendingTestsScreenState extends State<PendingTestsScreen> {
     final q = _searchCtrl.text.toLowerCase();
     setState(() {
       _filtered = _all.where((p) {
-        if (_searchBy == 'MPI') {
-          return p['mpi']?.toString().contains(q) ?? false;
+        if (_searchBy == 'nic') {
+          return p['nic']?.toString().contains(q) ?? false;
         }
         final name = '${p['fname'] ?? ''} ${p['lname'] ?? ''}'.toLowerCase();
         return name.contains(q);
@@ -158,7 +158,7 @@ class _PendingTestsScreenState extends State<PendingTestsScreen> {
                           color: Colors.white,
                           fontSize: 13,
                         ),
-                        items: ['Name', 'MPI']
+                        items: ['Name', 'nic']
                             .map(
                               (v) => DropdownMenuItem(
                                 value: v,
@@ -207,7 +207,7 @@ class _PendingTestsScreenState extends State<PendingTestsScreen> {
                                   patient: p,
                                   onTap: () async {
                                     final vid = p['vid']?.toString() ?? '';
-                                    final mpi = p['mpi']?.toString() ?? '';
+                                    final nic = p['nic']?.toString() ?? '';
                                     final locked =
                                         await ApiService.lockByVisitId(vid);
                                     if (!mounted) return;
@@ -228,7 +228,7 @@ class _PendingTestsScreenState extends State<PendingTestsScreen> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => LabPatientDetailsScreen(
-                                          mpi: mpi,
+                                          nic: nic,
                                           vid: vid,
                                         ),
                                       ),
@@ -286,7 +286,7 @@ class _PatientTile extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'MPI: ${patient['mpi'] ?? ''}',
+                    'nic: ${patient['nic'] ?? ''}',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   Text(

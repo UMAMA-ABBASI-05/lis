@@ -4,11 +4,11 @@ import '../../services/session_manager.dart';
 import '../lab/test_result_entry.dart';
 
 class LabPatientDetailsScreen extends StatefulWidget {
-  final String mpi;
+  final String nic;
   final String vid;
   const LabPatientDetailsScreen({
     super.key,
-    required this.mpi,
+    required this.nic,
     required this.vid,
   });
   @override
@@ -60,7 +60,7 @@ class _LabPatientDetailsScreenState extends State<LabPatientDetailsScreen> {
 
   Future<void> _load() async {
     try {
-      final data = await ApiService.getPatientProcess(widget.mpi, widget.vid);
+      final data = await ApiService.getPatientProcess(widget.nic, widget.vid);
       final tests = (data['lab_reports'] as List?) ?? [];
       for (final t in tests) {
         final id = t['report_id']?.toString() ?? '';
@@ -251,8 +251,8 @@ class _LabPatientDetailsScreenState extends State<LabPatientDetailsScreen> {
                                   ),
                                   const SizedBox(height: 10),
                                   _row(
-                                    'MPI:',
-                                    _data?['mpi']?.toString() ?? widget.mpi,
+                                    'nic:',
+                                    _data?['nic']?.toString() ?? widget.nic,
                                   ),
                                   _row('VID:', widget.vid),
                                   _row('Gender:', _data?['gender'] ?? 'N/A'),

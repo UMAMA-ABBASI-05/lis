@@ -1,6 +1,6 @@
 class TestRequestModel {
   final int testReqId;
-  final int mpi;
+  final int nic;
   final String testName;
   final String status; // Pending, Accepted, Declined, Completed
   final String? declineReason;
@@ -9,7 +9,10 @@ class TestRequestModel {
 
   TestRequestModel({
     required this.testReqId,
-    required this.mpi,
+    required this.nic,
+
+
+
     required this.testName,
     required this.status,
     this.declineReason,
@@ -21,7 +24,7 @@ class TestRequestModel {
   factory TestRequestModel.fromJson(Map<String, dynamic> json) {
     return TestRequestModel(
       testReqId: json['test_req_id'],
-      mpi: json['mpi'],
+      nic: json['nic'],
       testName: json['test_name'],
       status: json['status'],
       declineReason: json['decline_reason'],
@@ -34,7 +37,7 @@ class TestRequestModel {
   Map<String, dynamic> toJson() {
     return {
       'test_req_id': testReqId,
-      'mpi': mpi,
+      'nic': nic,
       'test_name': testName,
       'status': status,
       'decline_reason': declineReason,

@@ -40,8 +40,8 @@ class _AcceptedTestsScreenState extends State<AcceptedTestsScreen> {
     final q = _searchCtrl.text.toLowerCase();
     setState(() {
       _filtered = _all.where((p) {
-        if (_searchBy == 'MPI') {
-          return p['mpi']?.toString().contains(q) ?? false;
+        if (_searchBy == 'nic') {
+          return p['nic']?.toString().contains(q) ?? false;
         }
         final name = '${p['fname'] ?? ''} ${p['lname'] ?? ''}'.toLowerCase();
         return name.contains(q);
@@ -128,7 +128,7 @@ class _AcceptedTestsScreenState extends State<AcceptedTestsScreen> {
                           color: Colors.white,
                           fontSize: 13,
                         ),
-                        items: ['Name', 'MPI']
+                        items: ['Name', 'nic']
                             .map(
                               (v) => DropdownMenuItem(
                                 value: v,
@@ -260,7 +260,7 @@ class _AcceptedTile extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'MPI: ${patient['mpi'] ?? ''}, VID: ${patient['vid'] ?? ''}',
+                    'nic: ${patient['nic'] ?? ''}, VID: ${patient['vid'] ?? ''}',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   Text(

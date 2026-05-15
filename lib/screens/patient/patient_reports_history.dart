@@ -3,11 +3,11 @@ import '../../services/api_service.dart';
 import '../lab/test_result_entry.dart';
 
 class PatientReportsHistoryScreen extends StatefulWidget {
-  final String mpi;
+  final String nic;
   final String patientName;
   const PatientReportsHistoryScreen({
     super.key,
-    required this.mpi,
+    required this.nic,
     required this.patientName,
   });
   @override
@@ -28,7 +28,7 @@ class _PatientReportsHistoryScreenState
 
   Future<void> _load() async {
     try {
-      final data = await ApiService.getPatientDetails(widget.mpi);
+      final data = await ApiService.getPatientDetails(widget.nic);
       setState(() {
         _data = data;
         _loading = false;
@@ -95,7 +95,7 @@ class _PatientReportsHistoryScreenState
                                   ),
                                 ),
                                 const SizedBox(height: 10),
-                                _row('MPI:', widget.mpi),
+                                _row('nic:', widget.nic),
                                 _row(
                                   'Age:',
                                   _data?['age']?.toString() ?? 'N/A',
