@@ -93,13 +93,13 @@ class _LABScreenState extends State<LABScreen> {
                               color: primaryBlue,
                             ),
                           ),
-                          // Text(
-                          //   'ID: ${l['lab_id'] ?? 'N/A'}',
-                          //   style: const TextStyle(
-                          //     fontSize: 12,
-                          //     color: Colors.grey,
-                          //   ),
-                          // ),
+                          Text(
+                            'ID: ${l['lab_id'] ?? 'N/A'}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
                         ],
                       ),
                     ),
