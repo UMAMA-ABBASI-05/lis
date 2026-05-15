@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'session_manager.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.31.246:8002';
+  static const String baseUrl = 'http://192.168.31.247:8002';
   static Future<List<dynamic>> getAllLabs() async {
     final res = await http.get(Uri.parse('$baseUrl/all-labs'));
     if (res.statusCode == 200) return jsonDecode(res.body);
@@ -122,13 +122,17 @@ class ApiService {
   }
 
   static Future<List<dynamic>> getWaitingList(String labId) async {
-    final res = await http.get(Uri.parse('$baseUrl/patient-waiting-list/$labId'));
+    final res = await http.get(
+      Uri.parse('$baseUrl/patient-waiting-list/$labId'),
+    );
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load waiting list');
   }
 
   static Future<List<dynamic>> getAcceptedList(String labId) async {
-    final res = await http.get(Uri.parse('$baseUrl/patient-Accepted-list/$labId'));
+    final res = await http.get(
+      Uri.parse('$baseUrl/patient-Accepted-list/$labId'),
+    );
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load accepted list');
   }
@@ -143,13 +147,15 @@ class ApiService {
   }
 
   static Future<List<dynamic>> getAllPatients(String labId) async {
-   
     final res = await http.get(Uri.parse('$baseUrl/get_patients/$labId'));
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load patients');
   }
 
-  static Future<Map<String, dynamic>> getPatientDetails(String nic, String labId) async {
+  static Future<Map<String, dynamic>> getPatientDetails(
+    String nic,
+    String labId,
+  ) async {
     final res = await http.get(Uri.parse('$baseUrl/patients/$nic/$labId'));
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load patient details');
@@ -232,5 +238,4 @@ class ApiService {
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load test result');
   }
-  
 }
