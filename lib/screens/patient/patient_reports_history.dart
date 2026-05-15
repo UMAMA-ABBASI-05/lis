@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../lab/test_result_entry.dart';
 
@@ -27,8 +28,10 @@ class _PatientReportsHistoryScreenState
   }
 
   Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final labId = prefs.getString('lab_id') ?? '';
     try {
-      final data = await ApiService.getPatientDetails(widget.nic);
+      final data = await ApiService.getPatientDetails(widget.nic,labId);
       setState(() {
         _data = data;
         _loading = false;

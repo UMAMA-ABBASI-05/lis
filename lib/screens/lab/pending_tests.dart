@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lis/screens/patient/lab_patient_details.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/session_manager.dart';
 import '../auth/login_screen.dart';
@@ -27,8 +28,10 @@ class _PendingTestsScreenState extends State<PendingTestsScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    final prefs = await SharedPreferences.getInstance();
+    final labId = prefs.getString('lab_id') ?? '';
     try {
-      final data = await ApiService.getWaitingList();
+      final data = await ApiService.getWaitingList(labId);
       setState(() {
         _all = data;
         _filtered = data;

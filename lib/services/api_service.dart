@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'session_manager.dart';
 
 class ApiService {
@@ -120,14 +121,14 @@ class ApiService {
     }
   }
 
-  static Future<List<dynamic>> getWaitingList() async {
-    final res = await http.get(Uri.parse('$baseUrl/patient-waiting-list'));
+  static Future<List<dynamic>> getWaitingList(String labId) async {
+    final res = await http.get(Uri.parse('$baseUrl/patient-waiting-list/$labId'));
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load waiting list');
   }
 
-  static Future<List<dynamic>> getAcceptedList() async {
-    final res = await http.get(Uri.parse('$baseUrl/patient-Accepted-list'));
+  static Future<List<dynamic>> getAcceptedList(String labId) async {
+    final res = await http.get(Uri.parse('$baseUrl/patient-Accepted-list/$labId'));
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load accepted list');
   }
@@ -141,14 +142,15 @@ class ApiService {
     throw Exception('Failed to load patient process');
   }
 
-  static Future<List<dynamic>> getAllPatients() async {
-    final res = await http.get(Uri.parse('$baseUrl/get_patients'));
+  static Future<List<dynamic>> getAllPatients(String labId) async {
+   
+    final res = await http.get(Uri.parse('$baseUrl/get_patients/$labId'));
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load patients');
   }
 
-  static Future<Map<String, dynamic>> getPatientDetails(String nic) async {
-    final res = await http.get(Uri.parse('$baseUrl/patients/$nic'));
+  static Future<Map<String, dynamic>> getPatientDetails(String nic, String labId) async {
+    final res = await http.get(Uri.parse('$baseUrl/patients/$nic/$labId'));
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load patient details');
   }
@@ -230,4 +232,5 @@ class ApiService {
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load test result');
   }
+  
 }

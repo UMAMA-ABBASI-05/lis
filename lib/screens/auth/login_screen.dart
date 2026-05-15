@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lis/screens/admin_login_screen.dart';
 import 'package:lis/screens/main_wrapper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/session_manager.dart';
 import 'signup_screen.dart';
@@ -68,6 +69,8 @@ class _LoginScreenState extends State<LoginScreen> {
         _selectedLabId!, // ← lab_id pass karo
       );
       await SessionManager.saveSession(res['user_id'], res['user_name'] ?? '');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('lab_id', _selectedLabId!);
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
