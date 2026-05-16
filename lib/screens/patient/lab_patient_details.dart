@@ -26,37 +26,35 @@ class _LabPatientDetailsScreenState extends State<LabPatientDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _lockAndLoad();
-  }
-
-  Future<void> _lockAndLoad() async {
-    // Pehle lock karo
-    final locked = await ApiService.lockByVisitId(widget.vid);
-    if (!mounted) return;
-
-    if (!locked) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This screen is locked by another user'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      Navigator.pop(context);
-      return;
-    }
-
-    // Lock OK — snackbar dikhao
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Screen locked by you'),
-        backgroundColor: Color(0xFF1A3B5D),
-        duration: Duration(seconds: 2),
-      ),
-    );
-
-    // Data load karo
+    // _lockAndLoad();
     _load();
   }
+
+  // Future<void> _lockAndLoad() async {
+  //   final locked = await ApiService.lockByVisitId(widget.vid);
+  //   if (!mounted) return;
+  //
+  //   if (!locked) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(
+  //         content: Text('This screen is locked by another user'),
+  //         backgroundColor: Colors.orange,
+  //       ),
+  //     );
+  //     Navigator.pop(context);
+  //     return;
+  //   }
+  //
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     const SnackBar(
+  //       content: Text('Screen locked by you'),
+  //       backgroundColor: Color(0xFF1A3B5D),
+  //       duration: Duration(seconds: 2),
+  //     ),
+  //   );
+  //
+  //   _load();
+  // }
 
   Future<void> _load() async {
     try {
@@ -86,17 +84,17 @@ class _LabPatientDetailsScreenState extends State<LabPatientDetailsScreen> {
   }
 
   Future<void> _unlockAndPop() async {
-    await ApiService.unlockByVisitId(widget.vid);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Screen unlocked'),
-          backgroundColor: Colors.grey,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      Navigator.pop(context);
-    }
+    // await ApiService.unlockByVisitId(widget.vid);
+    // if (mounted) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(
+    //       content: Text('Screen unlocked'),
+    //       backgroundColor: Colors.grey,
+    //       duration: Duration(seconds: 2),
+    //     ),
+    //   );
+    // }
+    if (mounted) Navigator.pop(context);
   }
 
   Future<void> _save() async {
@@ -105,13 +103,11 @@ class _LabPatientDetailsScreenState extends State<LabPatientDetailsScreen> {
       final userId = await SessionManager.getUserId() ?? 0;
       final tests = (_data?['lab_reports'] as List?) ?? [];
 
-      // Swagger format: {report_id: status} and {report_id: amount}
       final Map<String, String> reqIdStatus = {};
       final Map<String, double> reqIdBill = {};
 
       for (final t in tests) {
-        final id =
-            t['report_id']?.toString() ?? ''; // ← sirf toString(), int nahi
+        final id = t['report_id']?.toString() ?? '';
         reqIdStatus[id] = _statusMap[id] ?? 'Pending';
         reqIdBill[id] = double.tryParse(_amountCtrl[id]?.text ?? '0') ?? 0.0;
       }
@@ -126,12 +122,11 @@ class _LabPatientDetailsScreenState extends State<LabPatientDetailsScreen> {
       if (!mounted) return;
 
       if (ok) {
-        // Unlock karo save ke baad
-        await ApiService.unlockByVisitId(widget.vid);
+        // await ApiService.unlockByVisitId(widget.vid);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Saved & screen unlocked!'),
+            content: Text('Saved!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -159,8 +154,7 @@ class _LabPatientDetailsScreenState extends State<LabPatientDetailsScreen> {
 
   @override
   void dispose() {
-    // Screen se bahar jaate waqt unlock
-    ApiService.unlockByVisitId(widget.vid);
+    // ApiService.unlockByVisitId(widget.vid);
     for (final c in _amountCtrl.values) c.dispose();
     super.dispose();
   }
@@ -171,16 +165,15 @@ class _LabPatientDetailsScreenState extends State<LabPatientDetailsScreen> {
     final tests = (_data?['lab_reports'] as List?) ?? [];
 
     return WillPopScope(
-      // Back button pe bhi unlock
       onWillPop: () async {
-        await ApiService.unlockByVisitId(widget.vid);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Screen unlocked'),
-            backgroundColor: Colors.grey,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        // await ApiService.unlockByVisitId(widget.vid);
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   const SnackBar(
+        //     content: Text('Screen unlocked'),
+        //     backgroundColor: Colors.grey,
+        //     duration: Duration(seconds: 2),
+        //   ),
+        // );
         return true;
       },
       child: Scaffold(

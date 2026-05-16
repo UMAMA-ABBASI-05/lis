@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/session_manager.dart';
 import '../auth/login_screen.dart';
-//import 'lab_patient_details.dart';
 
 class PendingTestsScreen extends StatefulWidget {
   const PendingTestsScreen({super.key});
@@ -211,22 +210,23 @@ class _PendingTestsScreenState extends State<PendingTestsScreen> {
                                   onTap: () async {
                                     final vid = p['vid']?.toString() ?? '';
                                     final nic = p['nic']?.toString() ?? '';
-                                    final locked =
-                                        await ApiService.lockByVisitId(vid);
-                                    if (!mounted) return;
-                                    if (!locked) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Locked by another user',
-                                          ),
-                                          backgroundColor: Colors.orange,
-                                        ),
-                                      );
-                                      return;
-                                    }
+
+                                    // // Lock API call
+                                    // final locked =
+                                    //     await ApiService.lockByVisitId(vid);
+                                    // if (!mounted) return;
+                                    // if (!locked) {
+                                    //   ScaffoldMessenger.of(context)
+                                    //       .showSnackBar(
+                                    //     const SnackBar(
+                                    //       content: Text(
+                                    //           'Locked by another user'),
+                                    //       backgroundColor: Colors.orange,
+                                    //     ),
+                                    //   );
+                                    //   return;
+                                    // }
+
                                     await Navigator.push(
                                       context,
                                       MaterialPageRoute(

@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'session_manager.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.31.247:8002';
+  static const String baseUrl = 'http://192.168.51.14:8002';
   static Future<List<dynamic>> getAllLabs() async {
     final res = await http.get(Uri.parse('$baseUrl/all-labs'));
     if (res.statusCode == 200) return jsonDecode(res.body);
@@ -141,7 +141,16 @@ class ApiService {
     String nic,
     String vid,
   ) async {
-    final res = await http.get(Uri.parse('$baseUrl/patient-process/$nic/$vid'));
+    final prefs = await SharedPreferences.getInstance();
+    final labId = prefs.getString('lab_id') ?? '';
+
+    final res = await http.get(
+      Uri.parse(
+        '$baseUrl/patient-process/$nic/$vid?lab_id=$labId',
+      ), // ← lab_id add
+    );
+    print('Status: ${res.statusCode}');
+    print('Body: ${res.body}');
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load patient process');
   }
