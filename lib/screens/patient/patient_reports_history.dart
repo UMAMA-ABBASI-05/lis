@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lis/screens/patient/test_result_view_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../lab/test_result_entry.dart';
@@ -6,11 +7,13 @@ import '../lab/test_result_entry.dart';
 class PatientReportsHistoryScreen extends StatefulWidget {
   final String nic;
   final String patientName;
+
   const PatientReportsHistoryScreen({
     super.key,
     required this.nic,
     required this.patientName,
   });
+
   @override
   State<PatientReportsHistoryScreen> createState() =>
       _PatientReportsHistoryScreenState();
@@ -30,8 +33,12 @@ class _PatientReportsHistoryScreenState
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final labId = prefs.getString('lab_id') ?? '';
+
     try {
-      final data = await ApiService.getPatientDetails(widget.nic,labId);
+      final data = await ApiService.getPatientDetails(widget.nic, labId);
+
+      print('LAB REPORTS: ${data['lab_reports']}');
+
       setState(() {
         _data = data;
         _loading = false;
@@ -63,6 +70,7 @@ class _PatientReportsHistoryScreenState
                 ],
               ),
             ),
+
             Expanded(
               child: _loading
                   ? const Center(
@@ -97,17 +105,23 @@ class _PatientReportsHistoryScreenState
                                     color: Color(0xFF1A3B5D),
                                   ),
                                 ),
+
                                 const SizedBox(height: 10),
-                                _row('nic:', widget.nic),
+
+                                _row('NIC:', widget.nic),
+
                                 _row(
                                   'Age:',
                                   _data?['age']?.toString() ?? 'N/A',
                                 ),
+
                                 _row('Gender:', _data?['gender'] ?? 'N/A'),
                               ],
                             ),
                           ),
+
                           const SizedBox(height: 20),
+
                           const Text(
                             'Lab Reports',
                             style: TextStyle(
@@ -116,7 +130,9 @@ class _PatientReportsHistoryScreenState
                               color: Color(0xFF1A1A2E),
                             ),
                           ),
+
                           const SizedBox(height: 12),
+
                           if (reports.isEmpty)
                             const Center(
                               child: Text(
@@ -127,28 +143,68 @@ class _PatientReportsHistoryScreenState
                           else
                             ...reports.map((r) {
                               final status = r['status'] ?? '';
+
                               final isAccepted =
                                   status.toLowerCase() == 'accepted';
+
                               final isCompleted =
                                   status.toLowerCase() == 'completed';
+
                               return GestureDetector(
                                 onTap: isAccepted
-                                    ? () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => TestResultEntryScreen(
-                                            testReqId:
-                                                r['test_req_id']?.toString() ??
-                                                '',
-                                            patientName: widget.patientName,
-                                            testName: r['test_name'] ?? 'Test',
+                                    ? () {
+                                        print("REPORT ID: ${r['report_id']}");
+
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                TestResultEntryScreen(
+                                                  testReqId:
+                                                      r['report_id']
+                                                          ?.toString() ??
+                                                      '',
+                                                  patientName:
+                                                      widget.patientName,
+                                                  patientNic: widget.nic,
+                                                  testName:
+                                                      r['test_name'] ?? 'Test',
+                                                  testCode:
+                                                      r['test_code']
+                                                          ?.toString() ??
+                                                      '',
+                                                ),
                                           ),
-                                        ),
-                                      )
+                                        );
+                                      }
+                                    : isCompleted
+                                    ? () {
+                                        print("REPORT ID: ${r['report_id']}");
+
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                TestResultViewScreen(
+                                                  testReqId:
+                                                      r['report_id']
+                                                          ?.toString() ??
+                                                      '',
+                                                  patientName:
+                                                      widget.patientName,
+                                                  testName:
+                                                      r['test_name'] ?? 'Test',
+                                                ),
+                                          ),
+                                        );
+                                      }
                                     : null,
+
                                 child: Container(
                                   margin: const EdgeInsets.only(bottom: 10),
+
                                   padding: const EdgeInsets.all(14),
+
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(14),
@@ -156,27 +212,34 @@ class _PatientReportsHistoryScreenState
                                       color: const Color(0xFFDDE8F8),
                                     ),
                                   ),
+
                                   child: Row(
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.all(10),
+
                                         decoration: BoxDecoration(
                                           color: const Color(0xFFEAF2FF),
+
                                           borderRadius: BorderRadius.circular(
                                             10,
                                           ),
                                         ),
+
                                         child: const Icon(
                                           Icons.assignment_outlined,
                                           color: Color(0xFF1A3B5D),
                                           size: 20,
                                         ),
                                       ),
+
                                       const SizedBox(width: 14),
+
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
+
                                           children: [
                                             Text(
                                               r['test_name'] ?? 'Test',
@@ -186,6 +249,7 @@ class _PatientReportsHistoryScreenState
                                                 color: Color(0xFF1A1A2E),
                                               ),
                                             ),
+
                                             Text(
                                               'VID: ${r['vid'] ?? ''}',
                                               style: const TextStyle(
@@ -193,15 +257,18 @@ class _PatientReportsHistoryScreenState
                                                 color: Colors.grey,
                                               ),
                                             ),
+
                                             Container(
                                               margin: const EdgeInsets.only(
                                                 top: 4,
                                               ),
+
                                               padding:
                                                   const EdgeInsets.symmetric(
                                                     horizontal: 8,
                                                     vertical: 2,
                                                   ),
+
                                               decoration: BoxDecoration(
                                                 color: isCompleted
                                                     ? Colors.green.withOpacity(
@@ -214,9 +281,11 @@ class _PatientReportsHistoryScreenState
                                                     : Colors.orange.withOpacity(
                                                         0.1,
                                                       ),
+
                                                 borderRadius:
                                                     BorderRadius.circular(20),
                                               ),
+
                                               child: Text(
                                                 status,
                                                 style: TextStyle(
@@ -233,6 +302,7 @@ class _PatientReportsHistoryScreenState
                                           ],
                                         ),
                                       ),
+
                                       const Icon(
                                         Icons.chevron_right,
                                         color: Colors.grey,

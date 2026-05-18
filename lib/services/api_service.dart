@@ -4,11 +4,30 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'session_manager.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.51.14:8002';
+  static const String baseUrl = 'http://192.168.11.14:8002';
   static Future<List<dynamic>> getAllLabs() async {
     final res = await http.get(Uri.parse('$baseUrl/all-labs'));
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load labs');
+  }
+
+  static Future<List<Map<String, dynamic>>> getTestParameters({
+    required String nic,
+    required String testReqId,
+    required String testName,
+  }) async {
+    final uri = Uri.parse(
+      '$baseUrl/requests/take_test_parameters/$nic/$testReqId',
+    ).replace(queryParameters: {'test_name': testName});
+
+    final response = await http.get(uri);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      throw Exception('Failed to load test parameters: ${response.body}');
+    }
   }
 
   // Admin Login

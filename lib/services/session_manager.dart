@@ -21,4 +21,7 @@ class SessionManager {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
   }
+
+  // final prefs = await SharedPreferences.getInstance();
+  //   final labId = prefs.getString('lab_id') ?? '';
 }

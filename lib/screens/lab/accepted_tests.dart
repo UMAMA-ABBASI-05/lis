@@ -178,35 +178,23 @@ class _AcceptedTestsScreenState extends State<AcceptedTestsScreen> {
                                 return _AcceptedTile(
                                   patient: p,
                                   onTap: () async {
-                                    final testReqId =
-                                        p['test_req_id']?.toString() ?? '';
-                                    final locked =
-                                        await ApiService.lockByTestReqId(
-                                          testReqId,
-                                        );
-                                    if (!mounted) return;
-                                    if (!locked) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Locked by another user',
-                                          ),
-                                          backgroundColor: Colors.orange,
-                                        ),
-                                      );
-                                      return;
-                                    }
                                     await Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => TestResultEntryScreen(
-                                          testReqId: testReqId,
+                                          testReqId:
+                                              p['test_req_id']?.toString() ??
+                                              '',
                                           patientName:
                                               '${p['fname'] ?? ''} ${p['lname'] ?? ''}'
                                                   .trim(),
+                                          patientNic:
+                                              p['nic']?.toString() ??
+                                              '', // ← ADD
                                           testName: p['test_name'] ?? 'Test',
+                                          testCode:
+                                              p['test_code']?.toString() ??
+                                              '', // ← ADD
                                         ),
                                       ),
                                     );
@@ -263,7 +251,7 @@ class _AcceptedTile extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'nic: ${patient['nic'] ?? ''}, VID: ${patient['vid'] ?? ''}',
+                    'NIC: ${patient['nic'] ?? ''}, VID: ${patient['vid'] ?? ''}',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   Text(

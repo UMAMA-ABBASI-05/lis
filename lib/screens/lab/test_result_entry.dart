@@ -1,436 +1,559 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/session_manager.dart';
 
 class TestResultEntryScreen extends StatefulWidget {
   final String testReqId;
   final String patientName;
+  final String patientNic; // ← NEW: NIC chahiye GET parameters API ke liye
   final String testName;
+  final String testCode; // ← NEW: test_code chahiye POST API ke liye
+
   const TestResultEntryScreen({
     super.key,
     required this.testReqId,
     required this.patientName,
+    required this.patientNic,
     required this.testName,
+    required this.testCode,
   });
+
   @override
   State<TestResultEntryScreen> createState() => _TestResultEntryScreenState();
 }
 
 class _TestResultEntryScreenState extends State<TestResultEntryScreen> {
   final _summaryCtrl = TextEditingController();
-  final List<Map<String, TextEditingController>> _rows = [];
+
+  /// Har row mein: parameter (read-only), normal_range (read-only),
+  /// unit (read-only), aur result_value_ctrl (sirf yahi editable hai)
+  final List<Map<String, dynamic>> _rows = [];
+
   bool _saving = false;
   bool _loading = true;
 
+  // ─────────────────────────────────────────────────────────────────
+  // INIT — pehle existing result check karo, warna parameters load karo
+  // ─────────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    // _lockAndLoad();
-    _loadExistingResult();
+    _loadData();
   }
 
-  // Future<void> _lockAndLoad() async {
-  //   final locked = await ApiService.lockByTestReqId(widget.testReqId);
-  //   if (!mounted) return;
-  //
-  //   if (!locked) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(
-  //         content: Text('Screen is locked by another user'),
-  //         backgroundColor: Colors.orange,
-  //       ),
-  //     );
-  //     Navigator.pop(context);
-  //     return;
-  //   }
-  //
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     const SnackBar(
-  //       content: Text('Screen locked by you'),
-  //       backgroundColor: Color(0xFF1A3B5D),
-  //       duration: Duration(seconds: 2),
-  //     ),
-  //   );
-  //
-  //   await _loadExistingResult();
-  // }
-
-  Future<void> _loadExistingResult() async {
+  Future<void> _loadData() async {
     try {
-      final data = await ApiService.getTestResult(widget.testReqId);
-      _summaryCtrl.text = data['description'] ?? '';
-      final miniResults = (data['mini_test_results'] as List?) ?? [];
-      if (miniResults.isNotEmpty) {
-        _rows.clear();
-        for (final r in miniResults) {
-          _rows.add({
-            'test_name': TextEditingController(text: r['test_name'] ?? ''),
-            'normal_range': TextEditingController(
-                text: r['normal_range'] ?? ''),
-            'unit': TextEditingController(text: r['units'] ?? ''),
-            'result_value': TextEditingController(
-                text: r['result_value'] ?? ''),
-          });
+      // 1️⃣ Pehle existing result dekho (edit flow)
+      try {
+        final existing = await ApiService.getTestResult(widget.testReqId);
+        _summaryCtrl.text = existing['description'] ?? '';
+        final miniResults = (existing['mini_test_results'] as List?) ?? [];
+        if (miniResults.isNotEmpty) {
+          _rows.clear();
+          for (final r in miniResults) {
+            _rows.add({
+              'parameter': r['test_name'] ?? '',
+              'normal_range': r['normal_range'] ?? '',
+              'unit': r['units'] ?? '',
+              'result_value_ctrl': TextEditingController(
+                text: r['result_value'] ?? '',
+              ),
+            });
+          }
+          if (mounted) setState(() => _loading = false);
+          return; // existing data mil gayi, parameters API skip karo
         }
-      } else {
-        _addRow();
+      } catch (_) {
+        // koi existing result nahi — aage chalo
       }
+
+      // 2️⃣ GET /requests/take_test_parameters/{nic}/{test_req_id}
+      //    — yahan se parameters, normal_range, unit aate hain
+      final params = await ApiService.getTestParameters(
+        nic: widget.patientNic,
+        testReqId: widget.testReqId,
+        testName: widget.testName,
+      );
+
+      // Parameters API se aaya test_code SharedPreferences mein save karo
+      if (params.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'test_code',
+          params.first['test_code']?.toString() ?? '',
+        );
+      }
+
+      _rows.clear();
+      for (final p in params) {
+        _rows.add({
+          'parameter': p['parameter'] ?? p['test_name'] ?? '',
+          'normal_range': p['test_range'] ?? '',
+          'unit': p['unit'] ?? '',
+          'result_value_ctrl': TextEditingController(),
+        });
+      }
+
+      // Agar API ne koi parameter nahi diya toh ek blank row show karo
+      if (_rows.isEmpty) _rows.add(_emptyRow());
     } catch (_) {
-      _addRow();
+      _rows.add(_emptyRow());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  // Future<void> _unlockAndPop() async {
-  //   await ApiService.unlockByTestReqId(widget.testReqId);
-  //   if (mounted) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(
-  //         content: Text('Screen unlocked'),
-  //         backgroundColor: Colors.grey,
-  //         duration: Duration(seconds: 2),
-  //       ),
-  //     );
-  //     Navigator.pop(context);
-  //   }
-  // }
+  Map<String, dynamic> _emptyRow() => {
+    'parameter': '',
+    'normal_range': '',
+    'unit': '',
+    'result_value_ctrl': TextEditingController(),
+  };
 
-  void _addRow() {
-    setState(() {
-      _rows.add({
-        'test_name': TextEditingController(),
-        'normal_range': TextEditingController(),
-        'unit': TextEditingController(),
-        'result_value': TextEditingController(),
-      });
-    });
-  }
-
-  void _removeRow(int index) {
-    if (_rows.length <= 1) return;
-    setState(() {
-      for (final c in _rows[index].values) c.dispose();
-      _rows.removeAt(index);
-    });
-  }
-
+  // ─────────────────────────────────────────────────────────────────
+  // SAVE — POST /results/complete
+  // ─────────────────────────────────────────────────────────────────
   Future<void> _save() async {
+    // Check karo ke sab result values bhari hain
+    final empty = _rows.any(
+      (r) =>
+          (r['result_value_ctrl'] as TextEditingController).text.trim().isEmpty,
+    );
+    if (empty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter all result values'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() => _saving = true);
     try {
-      final miniResults = _rows
-          .map((r) => {
-                'test_name': r['test_name']!.text,
-                'normal_range': r['normal_range']!.text,
-                'unit': r['unit']!.text,
-                'result_value': r['result_value']!.text,
-              })
+      final userId = await SessionManager.getUserId();
+      final prefs = await SharedPreferences.getInstance();
+      final testCode = prefs.getString('test_code') ?? '';
+
+      final miniTests = _rows
+          .map(
+            (r) => {
+              'test_name': r['parameter'],
+              'normal_range': r['normal_range'],
+              'units': r['unit'],
+              'result_value': (r['result_value_ctrl'] as TextEditingController)
+                  .text
+                  .trim(),
+            },
+          )
           .toList();
 
+      // POST /results/complete
       await ApiService.addCompleteResult({
+        'user_id': userId,
+        'lab_id': prefs.getString('lab_id') ?? '',
         'test_req_id': int.tryParse(widget.testReqId) ?? widget.testReqId,
-        'description': _summaryCtrl.text,
-        'mini_test_results': miniResults,
+        'test_code': testCode,
+        'description': _summaryCtrl.text.trim(),
+        'mini_tests': miniTests,
       });
 
-      // await ApiService.unlockByTestReqId(widget.testReqId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Result saved!'),
+          content: Text('Result saved successfully!'),
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pop(context);
+      Navigator.pop(context, true); // true = refresh parent list
     } catch (e) {
-      // await ApiService.unlockByTestReqId(widget.testReqId);
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceAll('Exception: ', '')),
             backgroundColor: Colors.red,
           ),
         );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────
+  // DISPOSE
+  // ─────────────────────────────────────────────────────────────────
   @override
   void dispose() {
     _summaryCtrl.dispose();
-    // ApiService.unlockByTestReqId(widget.testReqId);
-    for (final r in _rows) for (final c in r.values) c.dispose();
+    for (final r in _rows) {
+      (r['result_value_ctrl'] as TextEditingController).dispose();
+    }
     super.dispose();
   }
 
+  // ─────────────────────────────────────────────────────────────────
+  // BUILD
+  // ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        // await ApiService.unlockByTestReqId(widget.testReqId);
-        // if (mounted)
-        //   ScaffoldMessenger.of(context).showSnackBar(
-        //     const SnackBar(
-        //       content: Text('Screen unlocked'),
-        //       backgroundColor: Colors.grey,
-        //       duration: Duration(seconds: 2),
-        //     ),
-        //   );
-        return true;
-      },
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF5F5F5),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Container(
-                color: Colors.white,
-                padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                      onPressed: () => Navigator.pop(context),
-                      // onPressed: _unlockAndPop,
-                    ),
-                    const Text(
-                      'Add Test Result',
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      // onPressed: _unlockAndPop,
-                      child: const Text(
-                        'Done',
-                        style: TextStyle(
-                          color: Color(0xFF1A3B5D),
-                          fontWeight: FontWeight.bold,
-                        ),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTopBar(),
+            Expanded(
+              child: _loading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF1A3B5D),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildPatientHeader(),
+                          const SizedBox(height: 24),
+                          _buildSummaryCard(),
+                          const SizedBox(height: 24),
+                          _buildResultsCard(),
+                          const SizedBox(height: 28),
+                          _buildSaveButton(),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: _loading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                            color: Color(0xFF1A3B5D)),
-                      )
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Test Result',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1A3B5D),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Patient: ${widget.patientName}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: Color(0xFF555555),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Test: ${widget.testName}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-
-                            const Text(
-                              'Report Summary',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1A3B5D),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                    color: const Color(0xFFEEEEEE)),
-                              ),
-                              child: TextField(
-                                controller: _summaryCtrl,
-                                maxLines: 4,
-                                decoration: const InputDecoration(
-                                  hintText: 'Summary...',
-                                  hintStyle: TextStyle(
-                                      color: Colors.grey, fontSize: 13),
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.all(14),
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 24),
-                            const Text(
-                              'Results',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1A3B5D),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-
-                            // Table header
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEAF2FF),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text('Parameters',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                            color: Color(0xFF1A3B5D))),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text('Normal Range',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                            color: Color(0xFF1A3B5D))),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text('Units',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                            color: Color(0xFF1A3B5D))),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text('Results',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                            color: Color(0xFF1A3B5D))),
-                                  ),
-                                  SizedBox(width: 24),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 8),
-                            ...List.generate(
-                                _rows.length, (i) => _buildRow(i)),
-
-                            TextButton.icon(
-                              onPressed: _addRow,
-                              icon: const Icon(Icons.add_circle_outline,
-                                  color: Color(0xFF1A3B5D)),
-                              label: const Text('Add Row',
-                                  style: TextStyle(
-                                      color: Color(0xFF1A3B5D))),
-                            ),
-
-                            const SizedBox(height: 20),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 52,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1A3B5D),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(12)),
-                                ),
-                                onPressed: _saving ? null : _save,
-                                child: _saving
-                                    ? const CircularProgressIndicator(
-                                        color: Colors.white)
-                                    : const Text('Save',
-                                        style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight:
-                                                FontWeight.bold)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildRow(int index) {
-    final r = _rows[index];
+  // ── TOP BAR ─────────────────────────────────────────────────────
+  Widget _buildTopBar() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
-      ),
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
       child: Row(
         children: [
-          _miniField(r['test_name']!, flex: 3, hint: 'Parameter'),
-          _miniField(r['normal_range']!, flex: 2, hint: 'Range'),
-          _miniField(r['unit']!, flex: 2, hint: 'Unit'),
-          _miniField(r['result_value']!, flex: 2, hint: 'Value'),
-          GestureDetector(
-            onTap: () => _removeRow(index),
-            child: const Icon(Icons.delete_outline,
-                color: Color(0xFFE74C3C), size: 20),
+          IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_new,
+              size: 18,
+              color: Color(0xFF1A3B5D),
+            ),
+            onPressed: () => Navigator.pop(context),
+          ),
+          const Text(
+            'Add Test Result',
+            style: TextStyle(color: Colors.grey, fontSize: 14),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Done',
+              style: TextStyle(
+                color: Color(0xFF1A3B5D),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _miniField(
-    TextEditingController ctrl, {
-    required int flex,
-    required String hint,
-  }) {
-    return Expanded(
-      flex: flex,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 3),
-        child: TextField(
-          controller: ctrl,
-          style: const TextStyle(fontSize: 12),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle:
-                const TextStyle(color: Colors.grey, fontSize: 11),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-                vertical: 6, horizontal: 4),
+  // ── PATIENT HEADER ───────────────────────────────────────────────
+  Widget _buildPatientHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Patient: ${widget.patientName}',
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A3B5D),
           ),
         ),
+        const SizedBox(height: 4),
+        Text(
+          widget.testName,
+          style: const TextStyle(fontSize: 13, color: Colors.grey),
+        ),
+      ],
+    );
+  }
+
+  // ── SUMMARY CARD ─────────────────────────────────────────────────
+  Widget _buildSummaryCard() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${widget.testName} Report Summary',
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A3B5D),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFEEEEEE)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: TextField(
+            controller: _summaryCtrl,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              hintText: 'Summary...',
+              hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.all(14),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── RESULTS CARD ─────────────────────────────────────────────────
+  Widget _buildResultsCard() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Results',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A3B5D),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE8EDF3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Column(
+              children: [
+                // ── Table Header ──────────────────────────────────
+                _buildTableHeader(),
+                // ── Rows ─────────────────────────────────────────
+                ...List.generate(_rows.length, (i) {
+                  return Column(
+                    children: [
+                      _buildTableRow(i),
+                      if (i < _rows.length - 1)
+                        const Divider(
+                          height: 1,
+                          color: Color(0xFFF0F3F8),
+                          indent: 12,
+                          endIndent: 12,
+                        ),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTableHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      color: const Color(0xFFEAF2FF),
+      child: const Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(
+              'Parameters',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+                color: Color(0xFF1A3B5D),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              'Normal Range',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+                color: Color(0xFF1A3B5D),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              'Units',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+                color: Color(0xFF1A3B5D),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              'Results',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+                color: Color(0xFF1A3B5D),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableRow(int index) {
+    final r = _rows[index];
+    final ctrl = r['result_value_ctrl'] as TextEditingController;
+    final isEven = index % 2 == 0;
+
+    return Container(
+      color: isEven ? Colors.white : const Color(0xFFFAFCFF),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Parameter name — READ ONLY
+          Expanded(
+            flex: 3,
+            child: Text(
+              r['parameter'] as String,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF1A3B5D),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          // Normal Range — READ ONLY
+          Expanded(
+            flex: 2,
+            child: Text(
+              r['normal_range'] as String,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF666666)),
+            ),
+          ),
+          // Unit — READ ONLY
+          Expanded(
+            flex: 2,
+            child: Text(
+              r['unit'] as String,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF666666)),
+            ),
+          ),
+          // Result Value — EDITABLE (sirf yahi user bharta hai)
+          Expanded(
+            flex: 2,
+            child: Container(
+              height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F5FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFB8D0F0)),
+              ),
+              child: TextField(
+                controller: ctrl,
+                textAlign: TextAlign.center,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A3B5D),
+                ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 8,
+                  ),
+                  hintText: '—',
+                  hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── SAVE BUTTON ──────────────────────────────────────────────────
+  Widget _buildSaveButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1A3B5D),
+          disabledBackgroundColor: const Color(0xFF1A3B5D).withOpacity(0.6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          elevation: 3,
+          shadowColor: const Color(0xFF1A3B5D).withOpacity(0.4),
+        ),
+        onPressed: _saving ? null : _save,
+        child: _saving
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : const Text(
+                'Save',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
       ),
     );
   }
